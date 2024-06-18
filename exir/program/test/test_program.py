@@ -36,6 +36,7 @@ from torch.export import Dim, export, ExportedProgram
 from torch.export._trace import _export
 
 from torch.library import impl, Library
+from torch.nn import functional as F
 
 
 class WrapperModule(torch.nn.Module):
@@ -553,11 +554,28 @@ class TestProgramManagers(unittest.TestCase):
             def _get_random_inputs(cls):
                 return TestLinear._get_random_inputs() + TestSDPA._get_random_inputs()
 
+        class TestUpsample(torch.nn.Module):
+            def __init__(self, upsample_scale):
+                super().__init__()
+                # Scale factor for upsampling
+                self.upsample_scale = upsample_scale
+
+            def forward(self, x):
+                x = F.interpolate(x, scale_factor=self.upsample_scale, mode="nearest")
+                return x
+
+            @classmethod
+            def _get_random_inputs(cls):
+                x = torch.randn(1, 1, 8, 8)
+                return (x,)
+
         self._test_model_with_non_decomp_partitioner(TestLinear())
 
         self._test_model_with_non_decomp_partitioner(TestSDPA())
 
         self._test_model_with_non_decomp_partitioner(TestLinearSDPACombined())
+
+        self._test_model_with_non_decomp_partitioner(TestUpsample(upsample_scale=2))
 
     def test_to_edge_transform_and_lower_with_exception(self):
         class TestLinear(torch.nn.Module):
